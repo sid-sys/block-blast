@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Debug frames and recordings
+ezgif-*/
+*.mp4
+frame_*.jpg
