@@ -13,12 +13,13 @@ export const Tray: React.FC<TrayProps> = ({ shapes, setDraggedShape }) => {
             {shapes.map((shape) => (
                 <div
                     key={shape.id}
-                    draggable
-                    onDragStart={() => {
+                    onPointerDown={(e) => {
+                        // @ts-ignore - setPointerCapture exists but may not be in types depending on TS version
+                        e.currentTarget.setPointerCapture(e.pointerId);
                         setDraggedShape(shape);
                     }}
-                    onDragEnd={() => setDraggedShape(null)}
                     className="tray-shape"
+                    style={{ touchAction: 'none' }}
                 >
                     <div
                         className="shape-grid"

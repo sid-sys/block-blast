@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { type GridCell, GRID_SIZE, type ClearedLines } from '../hooks/useGameLogic';
 import { type Shape } from '../utils/shapes';
 import { Block } from './Block';
@@ -10,33 +10,81 @@ interface BoardProps {
     canPlaceShape: (grid: GridCell[][], shape: Shape, r: number, c: number) => boolean;
     onPlaceShape: (shape: Shape, r: number, c: number) => boolean;
     draggedShape: Shape | null;
+    setDraggedShape: (shape: Shape | null) => void;
     clearedLines: ClearedLines | null;
+    pointerPos: { x: number, y: number };
 }
 
-export const Board: React.FC<BoardProps> = ({ grid, canPlaceShape, onPlaceShape, draggedShape, clearedLines }) => {
+export const Board: React.FC<BoardProps> = ({
+    grid,
+    canPlaceShape,
+    onPlaceShape,
+    draggedShape,
+    setDraggedShape,
+    clearedLines,
+    pointerPos
+}) => {
     const [hoverPos, setHoverPos] = useState<{ r: number, c: number } | null>(null);
+    const boardRef = useRef<HTMLDivElement>(null);
 
-    const handleDragOver = (e: React.DragEvent, r: number, c: number) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        if (draggedShape) {
-            // Center the shape on the cursor instead of anchoring at top-left
+    // Track which cell is hovered based on pointer coordinates
+    useEffect(() => {
+        if (!draggedShape || !boardRef.current) {
+            if (hoverPos) setHoverPos(null);
+            return;
+        }
+
+        const rect = boardRef.current.getBoundingClientRect();
+
+        // Check if pointer is within board bounds
+        if (
+            pointerPos.x >= rect.left &&
+            pointerPos.x <= rect.right &&
+            pointerPos.y >= rect.top &&
+            pointerPos.y <= rect.bottom
+        ) {
+            const cellWidth = rect.width / GRID_SIZE;
+            const cellHeight = rect.height / GRID_SIZE;
+
+            const rawC = Math.floor((pointerPos.x - rect.left) / cellWidth);
+            const rawR = Math.floor((pointerPos.y - rect.top) / cellHeight);
+
+            // Apply centering offset logic
             const offsetR = Math.floor(draggedShape.matrix.length / 2);
             const offsetC = Math.floor(draggedShape.matrix[0].length / 2);
-            const adjustedR = r - offsetR;
-            const adjustedC = c - offsetC;
+            const r = rawR - offsetR;
+            const c = rawC - offsetC;
 
-            if (hoverPos?.r !== adjustedR || hoverPos?.c !== adjustedC) {
-                setHoverPos({ r: adjustedR, c: adjustedC });
+            if (hoverPos?.r !== r || hoverPos?.c !== c) {
+                setHoverPos({ r, c });
             }
+        } else {
+            if (hoverPos) setHoverPos(null);
         }
-    };
+    }, [pointerPos, draggedShape]);
 
-    const handleDragLeave = () => {
-        setHoverPos(null);
-    };
+    // Handle the drop event (pointerup)
+    useEffect(() => {
+        const handleGlobalPointerUp = () => {
+            if (draggedShape && hoverPos) {
+                const success = onPlaceShape(draggedShape, hoverPos.r, hoverPos.c);
+                if (success) {
+                    const rows = draggedShape.matrix.length;
+                    const cols = draggedShape.matrix[0].length;
+                    const centerR = hoverPos.r + (rows / 2);
+                    const centerC = hoverPos.c + (cols / 2);
+                    triggerRipple(centerR, centerC, draggedShape.color);
+                }
+            }
+            setDraggedShape(null);
+            setHoverPos(null);
+        };
 
-
+        if (draggedShape) {
+            window.addEventListener('pointerup', handleGlobalPointerUp);
+            return () => window.removeEventListener('pointerup', handleGlobalPointerUp);
+        }
+    }, [draggedShape, hoverPos, onPlaceShape, setDraggedShape]);
 
     // Calculate ghost cells
     const ghostCells = new Set<string>();
@@ -61,36 +109,15 @@ export const Board: React.FC<BoardProps> = ({ grid, canPlaceShape, onPlaceShape,
         setRipples((prev) => [...prev, { id: Date.now(), r, c, color }]);
     };
 
-    const handleDropWithRipple = (e: React.DragEvent, r: number, c: number) => {
-        e.preventDefault();
-        setHoverPos(null);
-        if (draggedShape) {
-            // Center the shape on the cursor (same offset as handleDragOver)
-            const offsetR = Math.floor(draggedShape.matrix.length / 2);
-            const offsetC = Math.floor(draggedShape.matrix[0].length / 2);
-            const adjustedR = r - offsetR;
-            const adjustedC = c - offsetC;
-
-            const success = onPlaceShape(draggedShape, adjustedR, adjustedC);
-            if (success) {
-                // Calculate center of the shape for the ripple origin
-                const rows = draggedShape.matrix.length;
-                const cols = draggedShape.matrix[0].length;
-                const centerR = adjustedR + (rows / 2);
-                const centerC = adjustedC + (cols / 2);
-                triggerRipple(centerR, centerC, draggedShape.color);
-            }
-        }
-    };
-
     return (
         <div
+            ref={boardRef}
             className="game-grid"
             style={{
                 gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
                 gridTemplateRows: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
+                touchAction: 'none', // Prevent scrolling while interacting with board
             }}
-            onMouseLeave={handleDragLeave}
         >
             {grid.map((row, r) => (
                 row.map((cell, c) => {
@@ -100,8 +127,6 @@ export const Board: React.FC<BoardProps> = ({ grid, canPlaceShape, onPlaceShape,
                         <div
                             key={`${r}-${c}`}
                             className="grid-cell"
-                            onDragOver={(e) => handleDragOver(e, r, c)}
-                            onDrop={(e) => handleDropWithRipple(e, r, c)}
                         >
                             <AnimatePresence mode="popLayout">
                                 {cell ? (

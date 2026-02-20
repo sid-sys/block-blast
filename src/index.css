@@ -475,6 +475,63 @@ body {
   /* Colors applied inline by component */
 }
 
+/* === Mobile Responsiveness === */
+@media (max-width: 600px) {
+  .app-container {
+    padding: 10px;
+    gap: 1.5rem;
+  }
+
+  .header {
+    width: 100%;
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+
+  .score-box {
+    min-width: 80px;
+    padding: 8px 12px;
+  }
+
+  .score-value {
+    font-size: 1.5rem;
+  }
+
+  .game-board-container {
+    width: 100%;
+    max-width: 360px;
+  }
+
+  .tray-container {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .tray-shape {
+    transform: scale(0.75);
+  }
+}
+
+/* === Floating Drag Preview === */
+.floating-drag-preview {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1000;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.4));
+}
+
+.floating-drag-preview .shape-grid {
+  display: grid;
+}
+
+.floating-drag-preview .shape-grid div {
+  width: 32px !important;
+  height: 32px !important;
+}
+
 .floating-text-label {
   font-size: 1.4rem;
   font-weight: 800;
